@@ -1083,7 +1083,7 @@ loop(0.01, async() => {
 
     if(t%2 == 0) {
 
-        if(isKeyDown("z") && player.grappleState == 0) {
+        if(isKeyDown("x") && player.grappleState == 0) {
 
             player.grappleState = 1; // lançando
 
@@ -1119,7 +1119,7 @@ loop(0.01, async() => {
 
         }
 
-        if(!isKeyDown("z") && (player.grappleState == 1 || player.grappleState == 3)) { //lançando ou fixado
+        if(!isKeyDown("x") && (player.grappleState == 1 || player.grappleState == 3)) { //lançando ou fixado
 
             player.grappleState = 2; // voltando
             grapple.distance = Math.sqrt((player.pos.x+player.w/2 - grapple.pos.x)*(player.pos.x+player.w/2 - grapple.pos.x) + (player.pos.y+player.h/2 - grapple.pos.y)*(player.pos.y+player.h/2 - grapple.pos.y))/grappleOriginDist;
@@ -1128,7 +1128,7 @@ loop(0.01, async() => {
             console.log(grapple.distance);
         }
 
-        if(!isKeyDown("z") && player.grappleState == 4) { //player fixado
+        if(!isKeyDown("x") && player.grappleState == 4) { //player fixado
 
             if(player.grappleDirection == "up") {
 
@@ -1220,7 +1220,7 @@ loop(0.01, async() => {
 
         if(player.grappleState <= 2) {
             if(isGrounded(player)) {
-                if(isKeyDown("up")) player.velY -= 15;
+                if(isKeyDown("z")) player.velY -= 15;
             }
 
             moveVelX = 0;
