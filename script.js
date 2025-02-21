@@ -1,371 +1,206 @@
 // Start server
-
 // python -m http.server 8080
 
 kaboom({
-
     background: [30, 30, 50],
-
     width: 800,
-
     height: 600,
-
     canvas: document.getElementById("cv"),
-
     letterbox: true,
-
     debug: true,
-
     maxFPS: 90,
-
     // scale: 2
-
 });
 
-
-
 function loadAllSprites() {
-
     loadSprite("playerIdle", "src/1_Cat_Idle-Sheet.png", {
-
         sliceX: 4,
-
         sliceY: 2,
-
         anims: {
-
             anim: { from: 0, to: 7, loop: true },
-
         },
-
     });
 
     loadSprite("playerRun", "src/2_Cat_Run-Sheet.png", {
-
         sliceX: 5,
-
         sliceY: 2,
-
         anims: {
-
             anim: { from: 0, to: 9, loop: true },
-
         },
-
     });
 
     loadSprite("playerJump", "src/3_Cat_Jump-Sheet.png", {
-
         sliceX: 2,
-
         sliceY: 2,
-
         anims: {
-
             anim: { from: 0, to: 3, loop: true },
-
         },
-
     });
 
     loadSprite("playerFall", "src/4_Cat_Fall-Sheet.png", {
-
         sliceX: 2,
-
         sliceY: 2,
-
         anims: {
-
             anim: { from: 0, to: 3, loop: true },
-
         },
-
     });
-
     ["up", "left", "right", "down"].forEach(e => {
-
         loadSprite(`grapple${e}`, `src/grapple${e}.png`);
-
         loadSprite(`grappleline${e}`, `src/grappleline${e}.png`);
-
     })
-
 }
 
 loadAllSprites();
 
-
-
 let playerSpr = add([
-
     sprite("playerRun"),
-
     pos(401, 301),
-
     scale(2),
-
     {
-
         sprite: "playerRun",
-
         face: 0, // (0 é direita, 1 é esquerda, msm q o flipX)
-
     } 
-
 ])
-
-
 
 playerSpr.play("anim");
 
-
-
 let player = add([
-
     rect(20, 32),
-
     color(255, 255, 0, 0),
-
     pos(playerSpr.pos.x + 10, playerSpr.pos.y + 25),
-
     area(),
-
     "player",
-
     {
-
         w: 20,
-
         h: 32,
-
         velX: 0,
-
         velY: 0,
-
         moveVelX: 0,
-
         grappleState: 0,
-
         grappleDirection: "left"
-
         /**
-
          * 0: Sem grapple
-
          * 1: Grapple lançando
-
          * 2: Grapple voltando
-
          * 3: Personagem sendo puxado
-
          * 4: Personagem no final do grapple
-
          */
-
     }
-
 ])
 
 player.opacity = 0.5;
-
-
-
 const CollisionTileSize = 40;
-
 const GrappleVel = 36;
-
 const GrappleSpeedBoost = 10;
-
 const MaxGrappleLength = 300;
-
 const grappleOriginDist = 10;
 
-
-
 function areRectanglesColliding(rect1, rect2) {
-
     let noHorizontalOverlap = rect1.pos.x + rect1.w <= rect2.pos.x || rect2.pos.x + rect2.w <= rect1.pos.x;
-
-
-
     let noVerticalOverlap = rect1.pos.y + rect1.h <= rect2.pos.y || rect2.pos.y + rect2.h <= rect1.pos.y;
-
-
-
     return !(noHorizontalOverlap || noVerticalOverlap);
-
 }
 
-
-
 function areRectanglesCollidingRotate(rotatedRect, nonRotatedRect) {
-
     // Rotated rectangle properties
-
     const rotatedCenterX = rotatedRect.pos.x;
-
     const rotatedCenterY = rotatedRect.pos.y;
-
     const rotatedWidth = rotatedRect.w;
-
     const rotatedHeight = rotatedRect.h;
-
     const rotatedAngle = rotatedRect.angle * (Math.PI / 180); // Convert to radians
-
-
 
     // Non-rotated rectangle properties
 
     const nonRotatedLeft = nonRotatedRect.pos.x;
-
     const nonRotatedTop = nonRotatedRect.pos.y;
-
     const nonRotatedWidth = nonRotatedRect.w;
-
     const nonRotatedHeight = nonRotatedRect.h;
 
-
-
     // Calculate the corners of the rotated rectangle
-
     const cosAngle = Math.cos(rotatedAngle);
-
     const sinAngle = Math.sin(rotatedAngle);
 
-
-
     const rotatedCorners = [
-
         { x: rotatedCenterX + (rotatedWidth / 2) * cosAngle - (rotatedHeight / 2) * sinAngle,
-
           y: rotatedCenterY + (rotatedWidth / 2) * sinAngle + (rotatedHeight / 2) * cosAngle },
 
         { x: rotatedCenterX - (rotatedWidth / 2) * cosAngle - (rotatedHeight / 2) * sinAngle,
-
           y: rotatedCenterY - (rotatedWidth / 2) * sinAngle + (rotatedHeight / 2) * cosAngle },
 
         { x: rotatedCenterX - (rotatedWidth / 2) * cosAngle + (rotatedHeight / 2) * sinAngle,
-
           y: rotatedCenterY - (rotatedWidth / 2) * sinAngle - (rotatedHeight / 2) * cosAngle },
 
         { x: rotatedCenterX + (rotatedWidth / 2) * cosAngle + (rotatedHeight / 2) * sinAngle,
-
           y: rotatedCenterY + (rotatedWidth / 2) * sinAngle - (rotatedHeight / 2) * cosAngle }
-
     ];
-
-
 
     // Calculate the corners of the non-rotated rectangle
 
     const nonRotatedCorners = [
-
         { x: nonRotatedLeft, y: nonRotatedTop },
-
         { x: nonRotatedLeft + nonRotatedWidth, y: nonRotatedTop },
-
         { x: nonRotatedLeft + nonRotatedWidth, y: nonRotatedTop + nonRotatedHeight },
-
         { x: nonRotatedLeft, y: nonRotatedTop + nonRotatedHeight }
-
     ];
-
-
 
     // Function to project a shape onto an axis
 
     function project(axis, corners) {
-
         let min = Infinity;
-
         let max = -Infinity;
 
         for (const corner of corners) {
-
             const dot = corner.x * axis.x + corner.y * axis.y;
-
             min = Math.min(min, dot);
-
             max = Math.max(max, dot);
-
         }
-
         return { min, max };
-
     }
-
-
 
     // Function to check if two projections overlap
 
     function overlap(proj1, proj2) {
-
         return !(proj1.max < proj2.min || proj2.max < proj1.min);
-
     }
-
-
 
     // Get the axes to test (normals of the edges)
 
     const axes = [
-
         { x: cosAngle, y: sinAngle }, // Axis from rotated rectangle
-
         { x: -sinAngle, y: cosAngle }, // Axis from rotated rectangle
-
         { x: 1, y: 0 }, // Axis from non-rotated rectangle
-
         { x: 0, y: 1 }  // Axis from non-rotated rectangle
-
     ];
-
-
 
     // Check for overlap on all axes
 
     for (const axis of axes) {
-
         const proj1 = project(axis, rotatedCorners);
-
         const proj2 = project(axis, nonRotatedCorners);
 
         if (!overlap(proj1, proj2)) {
-
             return false; // No collision if any axis has no overlap
-
         }
-
     }
 
-
-
     return true; // Collision if all axes have overlap
-
 }
 
 
 
 function isCollidingSolid(obj1) {
-
     let objToCheck = [];
 
     for(let i = -1; i <= 1; i++) {
-
         for(let j = -1; j <= 1; j++) {
-
             objToCheck = objToCheck.concat(get(`inPos${parseInt(obj1.pos.x/CollisionTileSize)+i}/${parseInt(obj1.pos.y/CollisionTileSize)+j}`));
-
         }
-
     }
 
     let returnVal = false;
 
     objToCheck.forEach((obj2) => {
-
         if(obj2.is("solid") && areRectanglesColliding(obj1, obj2)) returnVal = true;
-
     })
 
     return returnVal;
@@ -375,351 +210,201 @@ function isCollidingSolid(obj1) {
 
 
 function collidingList(obj1, rotated = false) {
-
     let returnVal = [];
-
     let objToCheck = [];
 
     for(let i = -1; i <= 1; i++) {
-
         for(let j = -1; j <= 1; j++) {
-
             objToCheck = objToCheck.concat(get(`inPos${parseInt(obj1.pos.x/CollisionTileSize)+i}/${parseInt(obj1.pos.y/CollisionTileSize)+j}`));
-
         }
-
     }
 
     objToCheck.forEach((obj2) => {
-
         if(!rotated) if(obj2.is("solid") && areRectanglesColliding(obj1, obj2)) returnVal.push(obj2);
 
         if(rotated) if(obj2.is("solid") && areRectanglesCollidingRotate(obj1, obj2)) returnVal.push(obj2);
-
     })
-
     return returnVal;
-
 }
 
 
 
 function collidingListGrappleLine(obj1, dir) {
-
     let pos;
-
     let inPosList = [];
 
-    
-
     if(dir == "left") pos = {x: obj1.pos.x - obj1.w, y: obj1.pos.y - 2};
-
     if(dir == "right") pos = {x: obj1.pos.x, y: obj1.pos.y - 2};
-
     if(dir == "up") pos = {x: obj1.pos.x - 2, y: obj1.pos.y - obj1.h};
-
     if(dir == "down") pos = {x: obj1.pos.x - 2, y: obj1.pos.y};
 
-
-
     for(let posX = parseInt(pos.x/CollisionTileSize); posX <= parseInt((pos.x+obj1.w)/CollisionTileSize); posX++) {
-
         for(let posY = parseInt(pos.y/CollisionTileSize); posY <= parseInt((pos.y+obj1.h)/CollisionTileSize); posY++) {
-
             inPosList.push(`inPos${posX}/${posY}`);
-
         }
-
     }
 
-    
-
     let returnVal = [];
-
     let objToCheck = [];
-
-    
 
     inPosList.forEach(el => { objToCheck = objToCheck.concat(get(el)); })
 
     let auxObj = {
-
         pos: pos,
-
         w: obj1.w, h: obj1.h
-
     }
 
     objToCheck.forEach((obj2) => {
-
         if(obj2.is("solid") && areRectanglesColliding(auxObj, obj2)) returnVal.push(obj2);
-
         // if(obj2.is("solid") && areRectanglesColliding(auxObj, obj2)) obj2.destroy();
-
     })
 
-    
-
     return returnVal;
-
 }
 
-
-
 function collidingListId(obj1) {
-
     let returnVal = [];
-
     let objToCheck = [];
 
     for(let i = -1; i <= 1; i++) {
-
         for(let j = -1; j <= 1; j++) {
-
             objToCheck = objToCheck.concat(get(`inPos${parseInt(obj1.pos.x/CollisionTileSize)+i}/${parseInt(obj1.pos.y/CollisionTileSize)+j}`));
-
         }
-
     }
-
     objToCheck.forEach((obj2) => {
-
         if(obj2.is("solid") && areRectanglesColliding(obj1, obj2)) returnVal.push(obj2.id);
-
     })
-
     return returnVal;
-
 }
 
-
-
 function addSolid(obj) {
-
     let o = add([
-
         rect(obj.width, obj.height),
-
         pos(obj.x, obj.y),
-
         area(),
-
         {
-
             w: obj.width,
-
             h: obj.height,
-
         },
-
         "solid"
-
     ])
 
     for(let posX = parseInt(obj.x/CollisionTileSize); posX <= parseInt((obj.x+obj.width)/CollisionTileSize); posX++) {
-
         for(let posY = parseInt(obj.y/CollisionTileSize); posY <= parseInt((obj.y+obj.height)/CollisionTileSize); posY++) {
-
             o.use(`inPos${posX}/${posY}`);
-
         }
-
     }
-
     return o;
-
 }
 
-
-
 function isGrounded(obj) {
-
     let beforeCollideId = collidingListId(obj);
-
     player.pos.y += 1;
-
     let afterCollideId = collidingListId(obj);
-
     let newCollisions = false;
 
     afterCollideId.forEach(o => {
-
         if(!beforeCollideId.includes(o)) {
-
             newCollisions = true;
-
         }
-
     })
-
     player.pos.y -= 1;
-
     return newCollisions;
-
 }
 
-
-
 function movePlayer() {
-
     let beforeCollideId = collidingListId(player);
 
     if(player.velY >= 0) {
-
         player.pos.y += player.velY;
-
         let afterCollideId = collidingListId(player);
-
         let afterCollide = collidingList(player);
-
         let newCollisions = [];
 
         afterCollideId.forEach(obj => {
-
             if(!beforeCollideId.includes(obj)) {
-
                 newCollisions.push(obj);
-
             }
-
         })
 
         if(newCollisions.length > 0) player.velY = 0;
 
         afterCollide.forEach(obj => {
-
             if(newCollisions.includes(obj.id)) {
-
                 player.pos.y = Math.min(player.pos.y, obj.pos.y - player.h);
-
             }
-
         })
-
     } else {
-
         player.pos.y += player.velY;
-
         let afterCollideId = collidingListId(player);
-
         let afterCollide = collidingList(player);
-
         let newCollisions = [];
 
         afterCollideId.forEach(obj => {
-
             if(!beforeCollideId.includes(obj)) {
-
                 newCollisions.push(obj);
-
             }
-
         })
 
         if(newCollisions.length > 0) player.velY = 0;
 
         afterCollide.forEach(obj => {
-
             if(newCollisions.includes(obj.id)) {
-
                 player.pos.y = Math.max(player.pos.y, obj.pos.y + obj.h);
-
             }
-
         })
-
     }
-
-
 
     if(player.velX >= 0) {
-
         player.pos.x += player.velX;
-
         let afterCollideId = collidingListId(player);
-
         let afterCollide = collidingList(player);
-
         let newCollisions = [];
 
         afterCollideId.forEach(obj => {
-
             if(!beforeCollideId.includes(obj)) {
-
                 newCollisions.push(obj);
-
             }
-
         })
 
         if(newCollisions.length > 0) {
-
             player.velX = 0;
-
             movementVel = 0;
-
         }
 
         afterCollide.forEach(obj => {
-
             if(newCollisions.includes(obj.id)) {
-
                 player.pos.x = Math.min(player.pos.x, obj.pos.x - player.w);
-
             }
-
         })
-
     } else {
-
         player.pos.x += player.velX;
-
         let afterCollideId = collidingListId(player);
-
         let afterCollide = collidingList(player);
-
         let newCollisions = [];
 
         afterCollideId.forEach(obj => {
-
             if(!beforeCollideId.includes(obj)) {
-
                 newCollisions.push(obj);
-
             }
-
         })
 
         if(newCollisions.length > 0) {
-
             player.velX = 0;
-
             movementVel = 0;
-
         }
 
         afterCollide.forEach(obj => {
-
             if(newCollisions.includes(obj.id)) {
-
                 player.pos.x = Math.max(player.pos.x, obj.pos.x + obj.w);
-
             }
-
         })
-
     }
-
 }
 
-
-
 addSolid({
-
     x: 400, y: 400,
-
     width: 300, height: 50
-
 })
 
 addSolid({
@@ -728,133 +413,76 @@ addSolid({
 })
 
 addSolid({
-
     x: 450, y: 360,
-
     width: 300, height: 50
-
 })
 
 addSolid({
-
     x: 500, y: 320,
-
     width: 300, height: 50
-
 })
 
 addSolid({
-
     x: 550, y: 280,
-
     width: 300, height: 50
-
 })
 
 addSolid({
-
     x: 0, y: 0,
-
     width: CollisionTileSize*3, height: CollisionTileSize*3
-
 })
 
 addSolid({
-
     x: CollisionTileSize*3, y: CollisionTileSize*3,
-
     width: CollisionTileSize*3, height: CollisionTileSize*3
-
 })
-
-
 
 // add([
-
 //     rect(150, 50),
-
 //     pos(400, 400),
-
 //     area(),
-
 //     {
-
 //         w: 150,
-
 //         h: 50,
-
 //     },
-
 //     "solid",
-
 //     "inPos4/4",
-
 //     "inPos5/4"
-
 // ])
-
-
 
 // let block = add([
-
 //     rect(50, 100),
-
 //     pos(500, 300),
-
 //     area(),
-
 //     "solid"
-
 // ])
 
-
-
 onKeyPress("up", () => {
-
     playerSpr.use(sprite("playerJump"));
-
     playerSpr.play("anim");
-
 })
 
 // onKeyPress("right", () => {
-
 //     playerSpr.use(sprite("playerRun"));
-
 //     playerSpr.play("anim");
-
 // })
 
 // onKeyPress("down", () => {
-
 //     playerSpr.use(sprite("playerFall"));
-
 //     playerSpr.play("anim");
-
 // })
 
 // onKeyPress("left", () => {
-
 //     playerSpr.use(sprite("playerJump"));
-
 //     playerSpr.play("anim");
-
 // })
 
-
-
 function flipPlayerSpr(flip) {
-
     let spr = playerSpr.sprite;
-
     debug.log(playerSpr.sprite);
-
     playerSpr.use(sprite(spr, {flipX: flip}));
-
     playerSpr.play("anim");
-
     playerSpr.face = flip;
-
 }
 
 // camScale(0.5);
@@ -863,68 +491,37 @@ flipPlayerSpr(true);
 
 // Main Loop
 
-
-
 let t = 0; // ticks
-
-
-
 let grapple;
-
 let grappleLine;
 
-
-
 function addGrapple(dir) {
-
     console.log("ADD GRAPPLE");
 
-    // if(typeof dir != "number") return ERRO;
-
     let o = add([
-
         sprite("grappleup"),
-
         pos(0, 0),
-
         anchor("center"),
-
         {
-
             w: 20, h: 12,
-
             distance: 0,
-
             dir: dir
-
         },
-
         "grapple"
-
     ])
 
     o.angle = dir/Math.PI*180;
 
     let centerPos = {
-
         x: player.pos.x + player.w/2,
-
         y: player.pos.y + player.h/2
-
     };
 
     let grapplePosX = centerPos.x + Math.sin(dir)*grappleOriginDist;
-
     let grapplePosY = centerPos.y - Math.cos(dir)*grappleOriginDist;
 
-
-
     o.pos.x = grapplePosX;
-
     o.pos.y = grapplePosY;
-
-
-
     return o;
 
 }
