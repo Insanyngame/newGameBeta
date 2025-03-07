@@ -93,7 +93,8 @@ const CollisionTileSize = 40;
 const GrappleVel = 36;
 const GrappleSpeedBoost = 10;
 const MaxGrappleLength = 300;
-const grappleOriginDist = 10;
+const GrappleOriginDist = 10;
+const GrappleLineSpriteLength = 12;
 
 function areRectanglesColliding(rect1, rect2) {
     let noHorizontalOverlap = rect1.pos.x + rect1.w <= rect2.pos.x || rect2.pos.x + rect2.w <= rect1.pos.x;
@@ -493,7 +494,7 @@ flipPlayerSpr(true);
 
 let t = 0; // ticks
 let grapple;
-let grappleLine;
+let grappleLine, grappleLineSpr = [];
 
 function addGrapple(dir) {
     console.log("ADD GRAPPLE");
@@ -517,8 +518,8 @@ function addGrapple(dir) {
         y: player.pos.y + player.h/2
     };
 
-    let grapplePosX = centerPos.x + Math.sin(dir)*grappleOriginDist;
-    let grapplePosY = centerPos.y - Math.cos(dir)*grappleOriginDist;
+    let grapplePosX = centerPos.x + Math.sin(dir)*GrappleOriginDist;
+    let grapplePosY = centerPos.y - Math.cos(dir)*GrappleOriginDist;
 
     o.pos.x = grapplePosX;
     o.pos.y = grapplePosY;
@@ -529,14 +530,18 @@ function addGrapple(dir) {
 
 
 function moveGrapple(checkCollision = true) {
+    if(isKeyDown("d")) {
+        updateGrappleLine();
+        return;
+    }
     let originalPos = grapple.pos;
     let centerPos = {
         x: player.pos.x + player.w/2,
         y: player.pos.y + player.h/2
     };
 
-    let grapplePosX = centerPos.x + Math.sin(grapple.dir)*grappleOriginDist*grapple.distance;
-    let grapplePosY = centerPos.y - Math.cos(grapple.dir)*grappleOriginDist*grapple.distance;
+    let grapplePosX = centerPos.x + Math.sin(grapple.dir)*GrappleOriginDist*grapple.distance;
+    let grapplePosY = centerPos.y - Math.cos(grapple.dir)*GrappleOriginDist*grapple.distance;
 
     grapple.pos.x = grapplePosX;
     grapple.pos.y = grapplePosY;
@@ -581,10 +586,52 @@ function moveGrapple(checkCollision = true) {
         if(grapple.angle == 225) grapple.pos.x = originalPos.x + mv, grapple.pos.y = originalPos.y + mv;
         if(grapple.angle == 315) grapple.pos.x = originalPos.x + mv, grapple.pos.y = originalPos.y + mv;
     }
-
 }
 
+function distance(x1, y1, x2, y2) {return Math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));}
 
+function updateGrappleLine() {
+    if(grappleLine) {
+        grappleLine.destroy();
+        grappleLineSpr.forEach(o => o.destroy());
+        grappleLineSpr = [];
+    }
+    let dist = distance(player.pos.x + player.w/2, player.pos.y + player.h/2, grapple.pos.x, grapple.pos.y);
+    // debug.log(dist, player.pos, grapple.pos);
+    grappleLine = add([
+        rect(4, dist),
+        pos((player.pos.x + player.w/2 + grapple.pos.x)/2, (player.pos.y + player.h/2 + grapple.pos.y)/2),
+        color(255, 0, 0),
+        anchor("center")
+    ])
+    grappleLine.opacity = 0;
+    
+    let playerCenterX = player.pos.x + player.w/2;
+    let playerCenterY = player.pos.y + player.h/2;
+    let deltaX = grapple.pos.x - playerCenterX;
+    let deltaY = grapple.pos.y - playerCenterY;
+    let dX = GrappleLineSpriteLength*deltaX/(Math.abs(deltaX) + Math.abs(deltaY));
+    let dY = GrappleLineSpriteLength*deltaY/(Math.abs(deltaX) + Math.abs(deltaY));
+    let angle = Math.atan2(-dX, dY)*180/Math.PI;
+    let distX = GrappleLineSpriteLength*Math.sin(Math.atan2(dX, dY));
+    let distY = GrappleLineSpriteLength*Math.cos(Math.atan2(dX, dY));
+    console.log(angle);
+
+    for(let i = 0; i <= Math.sqrt((deltaX*deltaX + deltaY*deltaY))/GrappleLineSpriteLength; i++) {
+        // break;
+        let o = add([
+            pos(playerCenterX + distX*i, playerCenterY + distY*i),
+            sprite("grapplelineup"),
+            anchor("bot"),
+            z(-1)
+        ])
+        grappleLineSpr.push(o);
+        o.angle = angle;
+    }
+    // grappleLine.angle = grapple.angle;
+    grappleLine.angle = angle;
+    return grappleLine;
+}
 
 // function addGrappleLine(dir) {
 
@@ -719,7 +766,7 @@ loop(0.01, async() => {
         if(!isKeyDown("x") && (player.grappleState == 1 || player.grappleState == 3)) { //lançando ou fixado
 
             player.grappleState = 2; // voltando
-            grapple.distance = Math.sqrt((player.pos.x+player.w/2 - grapple.pos.x)*(player.pos.x+player.w/2 - grapple.pos.x) + (player.pos.y+player.h/2 - grapple.pos.y)*(player.pos.y+player.h/2 - grapple.pos.y))/grappleOriginDist;
+            grapple.distance = Math.sqrt((player.pos.x+player.w/2 - grapple.pos.x)*(player.pos.x+player.w/2 - grapple.pos.x) + (player.pos.y+player.h/2 - grapple.pos.y)*(player.pos.y+player.h/2 - grapple.pos.y))/GrappleOriginDist;
             console.log((player.pos.x+player.w/2 - grapple.pos.x)*(player.pos.x+player.w/2 - grapple.pos.x) + (player.pos.y+player.h/2 - grapple.pos.y)*(player.pos.y+player.h/2 - grapple.pos.y));
             // console.log((player.pos.x+player.w/2 - grapple.pos.x)^2);
             console.log(grapple.distance);
@@ -770,6 +817,7 @@ loop(0.01, async() => {
 
 
             grapple.destroy();
+            grappleLine.destroy();
 
             player.grappleState = 0; // nada
 
@@ -840,14 +888,17 @@ loop(0.01, async() => {
         if(player.grappleState == 1) {
             grapple.distance += 3.6;
             moveGrapple();
+            updateGrappleLine();
         }
 
         if(player.grappleState == 2) {
             grapple.distance -= 3.6;
             moveGrapple(false);
+            updateGrappleLine();
 
             if(grapple.distance <= 0) {
                 grapple.destroy();
+                grappleLine.destroy();
                 player.grappleState = 0;
                 // grappleLine.destroy();
             }
@@ -885,6 +936,7 @@ loop(0.01, async() => {
             if(grapple.angle == 225) player.pos.x = grapple.pos.x, player.pos.y = grapple.pos.y - player.h;
             if(grapple.angle == 315) player.pos.x = grapple.pos.x, player.pos.y = grapple.pos.y;
         }
+        if(player.grappleState >= 1) updateGrappleLine();
     }
 
     
